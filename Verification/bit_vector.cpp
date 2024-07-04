@@ -3,19 +3,36 @@
 #include <sstream>
 #include <iomanip>
 #include <cstring>
+#include <vector>
+#include <ranges>
 
 template <typename T>
 class bit_vector {
 public:
     bit_vector(std::size_t size, T* initial_data) : bit_depth(size) {
 
-        auto sz = bit_depth / (8 * sizeof(T));
-        field = new T[sz];
+        auto sz = (bit_depth + 8 * sizeof(T) - 1) / (8 * sizeof(T));
+        field.resize(sz);
         for (std::size_t i = 0; i < sz; ++i) {
             
-            /*В соответствии с замечанием:
-            "При этом нулевой разряд нулевого элемента массива соответствует нулевому разряду битвектора."*/
-            field[i] = initial_data[sz - i - 1];
+            if (i != sz - 1)
+            {
+                field[i] = initial_data[i];
+            }
+
+            else
+            {
+                auto number_digits_last_number = bit_depth - 8 * sizeof(T) * (sz - 1);
+                if (number_digits_last_number >= 8 * sizeof(T))
+                {
+                    field[i] = initial_data[i];
+                }
+                else
+                {
+                    T mask = (1ULL << number_digits_last_number) - 1;
+                    field[i] = initial_data[i] & mask;
+                }
+            }
         }
     }
 
@@ -24,22 +41,24 @@ public:
     }
 
     auto get_bit(std::size_t digit) const {
-        std::size_t index = bit_depth - digit - 1;
-        auto elem_index = index / (8 * sizeof(T));
-        auto bit_index_in_elem = index % (8 * sizeof(T));
         
-        return (field[elem_index] >> ((8 * sizeof(T) - 1) - bit_index_in_elem)) & 0x1;
+        auto view = std::views::all(field);
+        auto elem_index = digit / (8 * sizeof(T));
+        auto bit_index_in_elem = digit % (8 * sizeof(T));
+        auto mask = 1 << bit_index_in_elem;
+        return (view[elem_index] & mask) != 0;
+        
     }
 
     auto set_bit(std::size_t digit, T value) {
-        std::size_t index = bit_depth - digit - 1;
-        auto elem_index = index / (8 * sizeof(T));
-        auto bit_index_in_elem = index % (8 * sizeof(T));
+
+        auto elem_index = digit / (8 * sizeof(T));
+        auto bit_index_in_elem = digit % (8 * sizeof(T));;
 
         if (value) {
-            field[elem_index] |= (1ULL << (8 * sizeof(T) - 1) - bit_index_in_elem);
+            field[elem_index] |= (1ULL << bit_index_in_elem);
         } else {
-            field[elem_index] &= ~(1ULL << (8 * sizeof(T) - 1) - bit_index_in_elem);
+            field[elem_index] &= ~(1ULL << bit_index_in_elem);
         }
     }
 
@@ -64,6 +83,7 @@ public:
         return result;
     }
 
+    // аналогично стандартной библиотеке промжуток вида [ , )
     auto to_integral_type(std::size_t offset, std::size_t field_size) const {
         uint64_t result = 0;
         for (std::size_t i = 0; i < field_size; ++i) {
@@ -77,14 +97,23 @@ public:
 
     auto hexadecimal() const {
         std::ostringstream oss;
-        oss << std::hex << std::setfill('0');
-        for (std::size_t i = 0; i < (bit_depth + 8 * sizeof(T) - 1) / (8 * sizeof(T)); ++i) {
-            oss << std::setw(2 * sizeof(T)) << static_cast<uint64_t>(field[i]);
+        oss << std::hex;
+        
+        bool leading_zero = true;
+        for (std::size_t i = 0; i < field.size(); ++i) {
+            auto value = static_cast<uint64_t>(field[field.size() - i - 1]);
+            for (int j = (2 * sizeof(T) - 1); j >= 0; --j) {
+                auto nibble = (value >> (4 * j)) & 0xF;
+                if (nibble || !leading_zero || (i == field.size() - 1 && j == 0)) {
+                    oss << nibble;
+                    leading_zero = false;
+                }
+            }
         }
         return oss.str();
     }
 
 private:
     std::size_t bit_depth;
-    T* field; 
+    std::vector<T> field; 
 };
