@@ -5,16 +5,13 @@
 #include <cstring>
 #include <vector>
 #include <ranges>
-#include <cmath>
+
 
 class bit_vector {
 public:
     template <typename T>
     bit_vector(std::size_t size, const T* initial_data) : bit_depth(size) {
-
-        auto field_size = std::ceil(static_cast<double>(bit_depth) / (8 * sizeof(T)));
-        field.reserve(field_size);
-
+        
         std::uint64_t filled_element = 0;
 
         // счетчик считываемого элемента
@@ -25,9 +22,15 @@ public:
         auto seq_counter = 0;
         // позиция элемента исходного массива
         auto i_elem = 0;
+        // длина подполя в последнем элементе
+        auto sz_subfld_las_elem = 0;
 
-        while (seq_counter < (bit_depth))
+        while (seq_counter < (bit_depth - 1))
         {
+            // вычисление кол-ва значащих битов в элементе
+            auto num_bits = significant_bits(initial_data[i_elem]);
+            while (read_counter < num_bits && seq_counter < (bit_depth - 1))
+            {
                 // случай, когда дошли до конца заполняемого элемента
                 if (write_counter == 64)
                 {
@@ -35,14 +38,9 @@ public:
 
                     filled_element = 0;
                     write_counter = 0;
+                    sz_subfld_las_elem = 0;
                 }
 
-                if (read_counter >= 8 * sizeof(T))
-                {
-                    read_counter = 0;
-                    i_elem++;
-                }
-                
                 auto i_bit = (initial_data[i_elem] >> read_counter) & 1;
 
                 filled_element = (filled_element & ~(1ULL << write_counter)) | (i_bit << write_counter);
@@ -51,14 +49,24 @@ public:
                 write_counter++;
                 seq_counter++;
                 sz_subfld_las_elem++;
+            }
+            if (read_counter >= num_bits) 
+            {
+                read_counter = 0;
+                i_elem++;
+            }
             
         }
-
         if (write_counter > 0) 
         {
             field.push_back(filled_element);
             
         }
+
+        auto start_index = sz_subfld_las_elem - 1;
+        unsigned long long mask_end_elem = (~0ULL) >> (63 - start_index);
+        auto& last_element = field.back();
+        last_element &= mask_end_elem;
 
     }
     
@@ -152,3 +160,4 @@ private:
     std::size_t bit_depth;
     std::vector<std::uint64_t> field; 
 };
+
