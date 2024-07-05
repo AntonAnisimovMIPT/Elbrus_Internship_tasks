@@ -4,7 +4,6 @@
 #include <iomanip>
 #include <cstring>
 #include <vector>
-#include <ranges>
 #include <cmath>
 
 class bit_vector {
@@ -67,13 +66,10 @@ public:
     }
 
     auto get_bit(std::size_t digit) const {
-        
-        auto view = std::views::all(field);
-        auto elem_index = digit / (8 * sizeof(std::uint64_t));
-        auto bit_index_in_elem = digit % (8 * sizeof(std::uint64_t));
-        auto mask = 1 << bit_index_in_elem;
-        return (view[elem_index] & mask) != 0;
-        
+        auto elem_index = digit / 64;
+        auto bit_index_in_elem = digit % 64;
+        auto mask = 1ULL << bit_index_in_elem;
+        return (field[elem_index] & mask) != 0;
     }
 
     auto set_bit(std::size_t digit, auto value) {
@@ -94,14 +90,10 @@ public:
             set_bit(offset + i, bv.get_bit(i));
         }
     }
-
     auto get_field(std::size_t offset, std::size_t field_size) const {
-        auto sz = (field_size + 8 * sizeof(std::uint64_t) - 1) / (8 * sizeof(std::uint64_t));
-        std::uint64_t* field_data = new std::uint64_t[sz];
-        std::memset(field_data, 0, sz * sizeof(std::uint64_t));
+        std::vector<std::uint64_t> field_data((field_size + 63) / 64, 0);
 
-        bit_vector result(field_size, field_data);
-        delete[] field_data;
+        bit_vector result(field_size, field_data.data());
 
         for (std::size_t i = 0; i < field_size; ++i) {
             result.set_bit(i, get_bit(offset + i));
@@ -154,3 +146,4 @@ private:
 };
 
 int main() {};
+
