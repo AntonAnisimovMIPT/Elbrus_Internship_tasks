@@ -50,7 +50,7 @@ public:
                 read_counter++;
                 write_counter++;
                 seq_counter++;
-                sz_subfld_las_elem++;
+
             
         }
 
@@ -152,3 +152,5 @@ private:
     std::size_t bit_depth;
     std::vector<std::uint64_t> field; 
 };
+
+int main() {};
